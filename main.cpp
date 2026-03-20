@@ -14,7 +14,7 @@ int main(void)
     const int MESSAGELENGTH = 512;
 
     SOCKET udpSocket;
-    struct sockaddr_in serverAdress;
+    struct sockaddr_in serverAdress, localAdress;
     int slen, recv_len;
     char message[MESSAGELENGTH];
     WSADATA wsaData;
@@ -32,19 +32,28 @@ int main(void)
         return 1;
     }
 
+    memset((char *)&localAdress, 0, sizeof(localAdress));
+    localAdress.sin_family = AF_INET;
+    localAdress.sin_addr.s_addr = INADDR_ANY;
+    localAdress.sin_port = htons(PORT);
+
+    if (bind(udpSocket, (struct sockaddr *)&localAdress, sizeof(localAdress)) == SOCKET_ERROR)
+    {
+        cout << "Bind fehlgeschlagen! Fehler: " << WSAGetLastError() << endl;
+    }
+
     memset((char *)&serverAdress, 0, sizeof(serverAdress));
     serverAdress.sin_family = AF_INET;
     serverAdress.sin_port = htons(PORT);
     serverAdress.sin_addr.S_un.S_addr = inet_addr(SERVERADDRESS.c_str());
 
-    cout << "Client bereit. Tippe deine Nachrichten (Endlosschleife):" << endl;
 
     while (true)
     {
         printf("\nDeine Nachricht: ");
         cin.getline(message, MESSAGELENGTH);
 
-        // 1. Nachricht an den Server senden
+        // Nachricht an den Relay-Server senden
         if (sendto(udpSocket, message, strlen(message), 0, (struct sockaddr *) &serverAdress, slen) == SOCKET_ERROR)
         {
             cout << "Senden fehlgeschlagen: " << WSAGetLastError() << endl;
@@ -54,18 +63,16 @@ int main(void)
         // Puffer leeren für den Empfang
         memset(message, '\0', MESSAGELENGTH);
 
-        // 2. Auf Antwort vom Server warten (Echo)
         if ((recv_len = recvfrom(udpSocket, message, MESSAGELENGTH, 0, (struct sockaddr *) &serverAdress, &slen)) == SOCKET_ERROR)
         {
             cout << "Empfangen fehlgeschlagen: " << WSAGetLastError() << endl;
             break;
         }
 
-        cout << "Antwort vom Server: " << message << endl;
+        cout << "Eingang: " << message << endl;
     }
 
     closesocket(udpSocket);
     WSACleanup();
-
     return 0;
 }
